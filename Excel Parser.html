@@ -1,0 +1,52 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.8.0/jszip.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.8.0/xlsx.js"></script>
+<script src="./excelParser.js"></script>
+<script src="./apiHandler.js"></script>
+<script src="./addUsersToAccount.js"></script>
+<script src="./addSessionToAccount.js"></script>
+<script src="./addObjectivesToSession.js"></script>
+<script src="./addKeyResultsToObjectives.js"></script>
+<script src="./addTasksToObjectives.js"></script>
+
+<script> 
+  //Calls this after excel file parsing. parsedExcelData is a dictionary ['SheetName'][SheetData]
+  async function onExcelComplete(parsedExcelData){
+
+    // Sends a response through the API and saves the returned users
+    const usersData = await addUsersToAccount(parsedExcelData['Users']);
+    
+  
+    // Adds the session to the Gtmhub account and stores the session object in this variable
+    const sessionData = await addSessionToAccount(); 
+    
+    
+    // Obtains only the Objective names and filters them for no duplicates and then makes requests for every Objective.
+    const uniqueGoalsArray = parsedExcelData['OKRs'].map(({ objective }) => objective).filter((item, i, ar) => ar.indexOf(item) === i); //Gets all lines from the OKRs sheet, takes the objectives and then filters the duplicates.
+    const goalsData = await addObjectivesToSession(uniqueGoalsArray,sessionData.id)
+    
+  
+    // Sends Key Results data and adds them to the created Objectives (goals) and users from the previous functions.
+    const keyResultsData = await addKeyResultsToObjectives(parsedExcelData['OKRs'],goalsData,usersData);
+    
+  
+    // Same as Key Results above but with Tasks.
+    const tasksData = await addTasksToObjectives(parsedExcelData['Tasks'],usersData,goalsData);
+
+    console.log("Everything is complete.")
+  }
+</script>
+
+<form enctype="multipart/form-data">
+    <input id="upload" type=file  name="files[]">
+</form>
+
+<script>
+    //File getter and handler
+    document.getElementById('upload').addEventListener('change', handleFileSelect, false);
+     
+    function handleFileSelect(evt) {
+      var files = evt.target.files; // FileList object
+      var xl2json = new ExcelToJSON();
+      xl2json.parseExcel(files[0], onExcelComplete);
+    }
+</script>
